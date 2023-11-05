@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,7 +18,7 @@ function createWindow(): BrowserWindow {
     webPreferences: {
       nodeIntegration: true,
       allowRunningInsecureContent: serve,
-      contextIsolation: false,
+      contextIsolation: false
     },
   });
 
@@ -41,6 +41,18 @@ function createWindow(): BrowserWindow {
     win.loadURL(url.href);
   }
 
+  let btCallback: ((deviceId: string) => void) | null;
+
+  win.webContents.on("select-bluetooth-device", (event, devices, callback) => {
+    btCallback = callback;
+    event.preventDefault();
+    win?.webContents.send("webble-scan", devices);
+  });
+
+  ipcMain.on('webble-selected', (event, deviceId) => {
+    if (btCallback) btCallback(deviceId);
+    btCallback = null;
+  });
   // Emitted when the window is closed.
   win.on('closed', () => {
     // Dereference the window object, usually you would store window
