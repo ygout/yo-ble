@@ -5,7 +5,7 @@ import { ElectronService } from './core/services';
 
 @Component({
   selector: 'app-root',
-  template: '<router-outlet></router-outlet>',
+  template: '<main><router-outlet></router-outlet></main>',
   imports: [RouterOutlet],
   standalone: true,
 })

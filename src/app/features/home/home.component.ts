@@ -1,34 +1,49 @@
 /// <reference types="web-bluetooth" />
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Signal, WritableSignal, inject, signal } from '@angular/core';
-import { IpcRendererEvent, BluetoothDevice } from 'electron';
-import { ElectronService } from '../../core/services';
-import { from } from 'rxjs';
+import { AsyncPipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  inject,
+} from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { BluetoothDevice } from 'electron';
+import { BehaviorSubject } from 'rxjs';
+import { BluetoothService } from '../../core/services/bluetooth/bluetooth.service';
+import { DeviceListComponent } from '../device-list/device-list.component';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule],
-  template: ` <p>home works!
-
-    <button (click)="requestDevice()">Request Device</button>
-  </p> `,
+  imports: [DeviceListComponent, MatButtonModule, AsyncPipe],
+  template: `
+    <section>
+      <app-device-list [devices]="(devices$ | async) ?? []"></app-device-list>
+      <button mat-raised-button color="primary" (click)="requestDevice()">
+        Request Device
+      </button>
+    </section>
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HomeComponent {
-  readonly #electronService = inject(ElectronService);
-  readonly devicesSig: WritableSignal<BluetoothDevice[]> = signal([]);
+  readonly #bleService = inject(BluetoothService);
+  readonly #cdr = inject(ChangeDetectorRef);
+
+  devices: BluetoothDevice[] = [];
+  devices$ = new BehaviorSubject<BluetoothDevice[]>([]);
+
+  constructor() {
+    this.#bleService.scannedDevices$.subscribe({
+      next: (devices) => {
+        this.devices$.next(devices);
+        this.#cdr.detectChanges();
+      },
+    });
+  }
 
   requestDevice() {
-    this.#electronService.ipcRenderer.on('webble-scan', (_: IpcRendererEvent, devices: BluetoothDevice[]) => {
-      console.log('devices home 2', devices);
-      this.devicesSig.set(devices);
-    });
-
-    from(navigator.bluetooth.requestDevice({ acceptAllDevices: true })).subscribe({
-      next: (device) => console.log('device ici',device),
-      error: (error) => console.log(error),
-      complete: () => console.log('finished'),
-    });
+    this.#bleService.scanDevicesEletron();
+    this.#bleService.scanDevices$().subscribe();
   }
 }
